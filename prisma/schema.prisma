@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum STATUS {
+  ENABLED
+  DISABLED
+  INVITED
+  EXPIRED
+  REVOKED
+}
+
+enum PosProvider {
+  ORACLE
+  TOAST
+  UNION
+}
+
+enum ApiKeyType {
+  API_KEY
+  BEARER_TOKEN
+  BASIC_AUTH
+  OAUTH2_CLIENT_CREDENTIALS
+  OAUTH2_REFRESH_TOKEN
+  JWT
+  CUSTOM_HEADERS
+}
+
+enum ApiKeyExpiration {
+  NO_EXPIRE
+  ONE_DAY
+  ONE_WEEK
+  ONE_MONTH
+}
+
+model Admin {
+  id                String    @id @default(uuid())
+  email             String?   @unique
+  phone             String?
+  code              String?
+  firstName         String?
+  lastName          String?
+  firstNameLastName String?
+  lastNameFirstName String?
+  status            STATUS    @default(INVITED)
+  lastLogin         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+
+  sessions    AdminSession[]
+  credentials AdminCredential[]
+}
+
+model AdminSession {
+  id           String    @id @default(uuid())
+  admin        Admin     @relation(fields: [adminId], references: [id])
+  adminId      String
+  accessToken  String    @db.Text
+  refreshToken String    @db.Text
+  ipAddress    String?
+  userAgent    String?   @db.Text
+  geoIpCountry String?
+  loginAt      DateTime?
+  logoutAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  isDeleted    Boolean   @default(false)
+}
+
+model AdminCredential {
+  id        String   @id @default(uuid())
+  admin     Admin    @relation(fields: [adminId], references: [id])
+  adminId   String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+}
+
+model Venue {
+  id          String      @id @default(uuid())
+  venueName   String
+  posProvider PosProvider
+  apiKeyType  ApiKeyType
+  apiKey      Json
+
+  venueApiKeys VenueApiKey[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+}
+
+model VenueApiKey {
+  id String @id @default(uuid())
+
+  name   String
+  apiKey String @unique
+
+  venueId String
+  venue   Venue  @relation(fields: [venueId], references: [id])
+
+  expiryOption ApiKeyExpiration @default(NO_EXPIRE)
+  lastUsedAt   DateTime?
+  expiresAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
+
+  @@index([venueId])
+  @@index([apiKey])
+}
+
+// ================ MY SQL DATABASE TRIGGERS ======= START ===============
+// DELIMITER //
+
+// CREATE TRIGGER on_update_admin_name BEFORE UPDATE ON Admin
+// FOR EACH ROW
+// BEGIN
+//    SET NEW.firstNameLastName = CONCAT(NEW.firstName, ' ', NEW.lastName);
+//    SET NEW.lastNameFirstName = CONCAT(NEW.lastName, ' ', NEW.firstName);
+// END;
